@@ -1,0 +1,27 @@
+run:
+  deadline: 5m
+  tests: false
+
+linters-settings:
+  errcheck:
+    check-blank: true
+  lll:
+    line-length: 180
+
+linters:
+  enable-all: true
+  disable:
+  - gas
+  - gochecknoglobals
+  - gochecknoinits
+  - interfacer
+  - maligned
+  - prealloc
+
+issues:
+  exclude-use-default: false
+  exclude:
+  - composite literal uses unkeyed fields
+  - exported function `New.+` should have comment or be unexported
+  - exported method `Listener\..+` should have comment or be unexported
+  - Error return value of `.+\.Close` is not checked
