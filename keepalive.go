@@ -8,9 +8,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// StartKeepalive starts sending server keepalive messages until done channel
-// is closed.
-func StartKeepalive(client *ssh.Client, interval time.Duration, countMax int, done <-chan struct{}) {
+// KeepAlive keeps an ssh channel alive sending keepalive pings
+// every interval seconds. The channel outlives up to maxErrors consecutive failures.
+// Done channel is a control channel that shutdowns a sidecar goroutine.
+func KeepAlive(client *ssh.Client, interval time.Duration, maxErrors int, done <-chan struct{}) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
 
@@ -18,14 +19,16 @@ func StartKeepalive(client *ssh.Client, interval time.Duration, countMax int, do
 	for {
 		select {
 		case <-t.C:
-			if err := serverAliveCheck(client); err != nil {
-				n++
-				if n >= countMax {
-					client.Close()
-					return
-				}
-			} else {
+			if err := serverAliveCheck(client); err == nil {
 				n = 0
+				continue
+			}
+
+			n++
+
+			if n >= maxErrors {
+				_ = client.Close()
+				return
 			}
 		case <-done:
 			return

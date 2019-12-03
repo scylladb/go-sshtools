@@ -20,7 +20,7 @@ func TestListenerAcceptOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.AfterFunc(50*time.Millisecond, func() {
-		conn.Close()
+		_ = conn.Close()
 	})
 	_, err = l.Accept()
 	if err != io.EOF {

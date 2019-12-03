@@ -10,6 +10,18 @@ import (
 )
 
 // DialContextFunc creates SSH connection to host with a given address.
+//
+// Known networks are "tcp", "tcp4" (IPv4-only), "tcp6" (IPv6-only),
+// "udp", "udp4" (IPv4-only), "udp6" (IPv6-only), "ip", "ip4"
+// (IPv4-only), "ip6" (IPv6-only), "unix", "unixgram" and
+// "unixpacket". For more info see net.Dial.
+//
+// For TCP and UDP networks, the addr has the form "host:port".
+// The host must be a literal IP address, or a host name that can be
+// resolved to IP addresses.
+// The port must be a literal port number or a service name.
+// If the host is a literal IPv6 address it must be enclosed in square
+// brackets, as in "[2001:db8::1]:80" or "[fe80::1%zone]:80".
 type DialContextFunc func(ctx context.Context, network, addr string, config *ssh.ClientConfig) (*ssh.Client, error)
 
 // ContextDialer returns DialContextFunc based on dialer to make net connections.
@@ -27,34 +39,26 @@ func (d contextDialer) DialContext(ctx context.Context, network, addr string, co
 		return nil, err
 	}
 
-	type dialRes struct {
-		client *ssh.Client
-		err    error
-	}
-	dialc := make(chan dialRes, 1)
-
+	var client *ssh.Client
+	var wait = make(chan struct{})
 	go func() {
-		sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
-		if err != nil {
-			dialc <- dialRes{err: err}
-		} else {
-			dialc <- dialRes{client: ssh.NewClient(sshConn, chans, reqs)}
+		sshConn, ch, rs, sshErr := ssh.NewClientConn(conn, addr, config)
+		if sshErr == nil {
+			client = ssh.NewClient(sshConn, ch, rs)
 		}
+		err = sshErr
+		close(wait)
 	}()
 
 	select {
-	case v := <-dialc:
-		// Our dial finished
-		if v.client != nil {
-			return v.client, nil
+	// write to (client, err) happens-before <-wait succeed
+	case <-wait:
+		if err != nil {
+			_ = conn.Close()
 		}
-		// Our dial failed
-		conn.Close()
-		// It wasn't an error due to cancellation, so
-		// return the original error message:
-		return nil, v.err
+		return client, err
 	case <-ctx.Done():
-		conn.Close()
+		_ = conn.Close()
 		return nil, ctx.Err()
 	}
 }

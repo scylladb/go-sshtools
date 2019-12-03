@@ -4,7 +4,8 @@ Package sshtools provides a wrapper around SSH client with the following feature
 
 * Context aware (dial and execution),
 * Keepalive enabled,
-* Can copy files using SCP.
+* Can copy files using SCP,
+* Provide SSH tunneling for net.Conn (HTTP+SSH).
 
 ## License
 

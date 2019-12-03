@@ -31,6 +31,7 @@ type Logger interface {
 type Communicator struct {
 	host   string
 	config Config
+
 	dial   DialContextFunc
 	logger Logger
 
@@ -79,7 +80,7 @@ func (c *Communicator) Connect(ctx context.Context) (err error) {
 	if c.config.KeepaliveEnabled() {
 		c.logger.Println("Starting ssh KeepAlives", "host", c.host)
 		c.keepaliveDone = make(chan struct{})
-		go StartKeepalive(client, c.config.ServerAliveInterval, c.config.ServerAliveCountMax, c.keepaliveDone)
+		go KeepAlive(client, c.config.ServerAliveInterval, c.config.ServerAliveCountMax, c.keepaliveDone)
 	}
 
 	return nil
@@ -97,7 +98,7 @@ func (c *Communicator) reset() {
 	c.keepaliveDone = nil
 
 	if c.client != nil {
-		c.client.Close()
+		_ = c.client.Close()
 		if c.OnConnClose != nil {
 			c.OnConnClose(c.host)
 		}
@@ -278,7 +279,7 @@ func (c *Communicator) scpSession(ctx context.Context, scpCommand string, f func
 	// and only close in the defer if it hasn't been closed already.
 	defer func() {
 		if stdinW != nil {
-			stdinW.Close()
+			_ = stdinW.Close()
 		}
 	}()
 
@@ -304,7 +305,7 @@ func (c *Communicator) scpSession(ctx context.Context, scpCommand string, f func
 	// Close the stdin, which sends an EOF, and then set w to nil so that
 	// our defer func doesn't close it again since that is unsafe with
 	// the Go SSH package.
-	stdinW.Close()
+	_ = stdinW.Close()
 	stdinW = nil
 
 	// Wait for the SCP connection to close, meaning it has consumed all
@@ -405,7 +406,9 @@ func scpUploadFile(dst io.Writer, src io.Reader, stdout *bufio.Reader, file stri
 	// Start the protocol
 	mode := fmt.Sprintf("C%04o", uint32(perm.Perm()))
 
-	fmt.Fprintln(dst, mode, size, file)
+	if _, err := fmt.Fprintln(dst, mode, size, file); err != nil {
+		return err
+	}
 	if err := checkSCPStatus(stdout); err != nil {
 		return err
 	}
@@ -414,7 +417,9 @@ func scpUploadFile(dst io.Writer, src io.Reader, stdout *bufio.Reader, file stri
 		return err
 	}
 
-	fmt.Fprint(dst, "\x00")
+	if _, err := fmt.Fprint(dst, "\x00"); err != nil {
+		return err
+	}
 	if err := checkSCPStatus(stdout); err != nil {
 		return err
 	}

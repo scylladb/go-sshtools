@@ -6,4 +6,5 @@ package sshtools
 //
 // * Context aware (dial and execution),
 // * Keepalive enabled,
-// * Can copy files using SCP.
+// * Can copy files using SCP,
+// * Provide SSH tunneling for net.Conn (HTTP+SSH).

@@ -23,6 +23,8 @@ type proxyConn struct {
 	free func()
 }
 
+var _ net.Conn = (*proxyConn)(nil)
+
 // newProxyConn opens a new session and start the shell. When the connection is
 // closed the client is closed and the free function is called.
 func newProxyConn(client *ssh.Client, stderr io.Writer, free func()) (*proxyConn, error) {

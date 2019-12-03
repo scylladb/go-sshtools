@@ -66,7 +66,7 @@ func (p *Dialer) DialContext(ctx context.Context, network, addr string) (conn ne
 
 	pconn, err := newProxyConn(client, &logStderr{host: host, logger: p.logger}, free)
 	if err != nil {
-		client.Close()
+		_ = client.Close()
 		return nil, errors.Wrap(err, "ssh: failed to connect")
 	}
 
@@ -75,7 +75,7 @@ func (p *Dialer) DialContext(ctx context.Context, network, addr string) (conn ne
 	// Init SSH keepalive if needed
 	if p.config.KeepaliveEnabled() {
 		p.logger.Println("Starting ssh KeepAlives", "host", host)
-		go sshtools.StartKeepalive(client, p.config.ServerAliveInterval, p.config.ServerAliveCountMax, keepaliveDone)
+		go sshtools.KeepAlive(client, p.config.ServerAliveInterval, p.config.ServerAliveCountMax, keepaliveDone)
 	}
 
 	return pconn, nil
